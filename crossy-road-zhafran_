@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>Crossy Road Game</title> 
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            text-align: center; /* Menengahkan tombol */
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            background-color: #4CAF50;
+            margin: auto;
+        }
+        .control-btn {
+            font-size: 20px;
+            margin: 10px;
+            padding: 10px 20px; /* Memperbesar tombol */
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: white;
+        }
+        #startMenu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+        }
+        #startBtn {
+            font-size: 24px;
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #startBtn:hover {
+            background-color: #0b7dda;
+        }
+        .difficulty-btn {
+            font-size: 20px;
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .difficulty-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style> 
+</head> 
+<body> 
+    <canvas id="gameCanvas" width="400" height="600"></canvas> 
+    <div id="score">Score: 0</div> 
+    <div id="startMenu">
+        <button id="startBtn">Start Game</button>
+        <br>
+        <button class="difficulty-btn" data-difficulty="easy">Mudah</button>
+        <button class="difficulty-btn" data-difficulty="normal">Normal</button>
+        <button class="difficulty-btn" data-difficulty="hard">Susah</button>
+    </div>
+    <button id="moveLeftBtn" class="control-btn">Kiri</button> 
+    <button id="moveRightBtn" class="control-btn">Kanan</button> 
+    <script>
+        var canvas = document.getElementById("gameCanvas");
+        var ctx = canvas.getContext("2d");
+        var score = 0;
+        var gameInterval;
+        var animationFrameId;
+        var difficulty = "normal"; // Default difficulty
+        var obstacleSpeed = 2; // Default obstacle speed
+
+        // Objek player
+        var player = {
+            x: canvas.width / 2,
+            y: canvas.height - 45,
+            width: 45,
+            height: 45,
+            color: "#FFFFFF",
+            alive: true,
+            draw: function () {
+                ctx.beginPath();
+                ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+
+                ctx.beginPath();
+                ctx.arc(this.x + this.width / 3, this.y + this.height / 3, 3, 0, Math.PI * 2);
+                ctx.arc(this.x + 2 * this.width / 3, this.y + this.height / 3, 3, 0, Math.PI * 2);
+                ctx.fillStyle = "#000000";
+                ctx.fill();
+                ctx.closePath();
+
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.width / 4, this.y + 2 * this.height / 3);
+                ctx.quadraticCurveTo(this.x + this.width / 2, this.y + this.height, this.x + 3 * this.width / 4, this.y + 2 * this.height / 3);
+                ctx.strokeStyle = "#000000";
+                ctx.stroke();
+                ctx.closePath();
+            },
+            die: function () {
+                this.alive = false;
+                clearInterval(gameInterval);
+                cancelAnimationFrame(animationFrameId);
+                document.getElementById("startMenu").style.display = "block"; // Tampilkan menu awal
+                alert("Kamu menabrak rintangan! Mohon coba lagi :P");
+            }
+        };
+
+        var obstacles = [];
+
+        function createObstacle() {
+            var obstacleWidth = Math.random() * 100 + 20;
+            var obstacleHeight = 20;
+            var obstacleX = Math.random() * (canvas.width - obstacleWidth);
+            var obstacleY = -obstacleHeight;
+            obstacles.push({ x: obstacleX, y: obstacleY, width: obstacleWidth, height: obstacleHeight });
+        }
+
+        function drawObstacles() {
+            for (var i = 0; i < obstacles.length; i++) {
+                ctx.fillStyle = "#000";
+                ctx.fillRect(obstacles[i].x, obstacles[i].y, obstacles[i].width, obstacles[i].height);
+            }
+        }
+
+        function updateObstacles() {
+            for (var i = 0; i < obstacles.length; i++) {
+                obstacles[i].y += obstacleSpeed;
+                if (obstacles[i].y > canvas.height) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    updateScore();
+                }
+            }
+        }
+
+        function movePlayer(direction) {
+            if (player.alive) {
+                if (direction === "left" && player.x > 0) {
+                    player.x -= 20;
+                } else if (direction === "right" && player.x < canvas.width - player.width) {
+                    player.x += 20;
+                }
+            }
+        }
+
+        function resetGame() {
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 45;
+            player.alive = true;
+            score = 0;
+            obstacles = [];
+            updateScore();
+            clearInterval(gameInterval);
+            cancelAnimationFrame(animationFrameId);
+        }
+
+        function startGame() {
+            resetGame();
+            document.getElementById("startMenu").style.display = "none";
+            document.getElementById("score").style.display = "block";
+            gameInterval = setInterval(function () {
+                createObstacle();
+            }, 1000);
+
+            document.addEventListener("keydown", function (event) {
+                if (player.alive) {
+                    if (event.key === "ArrowLeft") {
+                        movePlayer("left");
+                    } else if (event.key === "ArrowRight") {
+                        movePlayer("right");
+                    }
+                }
+            });
+
+            gameLoop();
+        }
+
+        function checkCollision() {
+            for (var i = 0; i < obstacles.length; i++) {
+                var obstacle = obstacles[i];
+                if (
+                    player.x < obstacle.x + obstacle.width &&
+                    player.x + player.width > obstacle.x &&
+                    player.y < obstacle.y + obstacle.height &&
+                    player.y + player.height > obstacle.y
+                ) {
+                    player.die();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            player.draw();
+            drawObstacles();
+        }
+
+        function update() {
+            if (player.alive) {
+                updateObstacles();
+                checkCollision();
+            }
+            draw();
+        }
+
+        function gameLoop() {
+            update();
+            if (player.alive) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function updateScore() {
+            document.getElementById("score").textContent = "Score: " + score;
+        }
+
+        document.getElementById("moveLeftBtn").addEventListener("click", function() {
+            movePlayer("left");
+        });
+
+        document.getElementById("moveRightBtn").addEventListener("click", function() {
+            movePlayer("right");
+        });
+
+        document.getElementById("startBtn").addEventListener("click", function() {
+            startGame();
+        });
+
+        var difficultyButtons = document.getElementsByClassName("difficulty-btn");
+        for (var i = 0; i < difficultyButtons.length; i++) {
+            difficultyButtons[i].addEventListener("click", function() {
+                difficulty = this.getAttribute("data-difficulty");
+                switch(difficulty) {
+                    case "easy":
+                        obstacleSpeed = 2;
+                        break;
+                    case "normal":
+                        obstacleSpeed = 3;
+                        break;
+                    case "hard":
+                        obstacleSpeed = 4;
+                        break;
+                }
+                startGame();
+            });
+        }
+    </script> 
+</body>
+</html>
